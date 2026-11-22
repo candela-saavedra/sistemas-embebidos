@@ -2,67 +2,52 @@
 #PREFIX=$(TOOLCHAIN)/arm-none-eabi-
 PREFIX=arm-none-eabi-
 
-CC=$(PREFIX)gcc
-LD=$(PREFIX)gcc
-GDB=gdb-multiarch
-RM=rm -f
+# Nivel de optimizacion: make OPT=-O0 o make OPT=-Ofast
+OPT?=-O0
 
 ARCHFLAGS=-mthumb -mcpu=cortex-m0plus
-COMMONFLAGS=-g3 -O0 -Wall $(ARCHFLAGS)
+COMMONFLAGS=-g3 $(OPT) -Wall -Werror $(ARCHFLAGS)
 
-# Simbolos que piden los ejemplos de la SDK
-DEFS=-DCPU_MKL46Z256VLL4 -DFRDM_KL46Z -DFREEDOM \
-     -DPRINTF_FLOAT_ENABLE=0 -DSCANF_FLOAT_ENABLE=0 \
-     -DPRINTF_ADVANCED_ENABLE=0 -DSCANF_ADVANCED_ENABLE=0
+CFLAGS=-I./includes $(COMMONFLAGS)
+LDFLAGS=$(COMMONFLAGS) -T link.ld -Wl,--gc-sections,-Map,$(TARGET).map
+LDLIBS=-lgcc
 
-INCLUDES=-I./board -I./drivers -I./utilities -I./device -I./CMSIS
+CC=$(PREFIX)gcc
+LD=$(PREFIX)gcc
+NM=$(PREFIX)nm
+RM=rm -f
 
-CFLAGS=$(COMMONFLAGS) $(DEFS) $(INCLUDES) -std=gnu99 \
-       -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -fno-common
-LDFLAGS=$(COMMONFLAGS) -T link.ld -nostartfiles \
-        -specs=nano.specs -specs=nosys.specs \
-        -Wl,--gc-sections,-Map,$(basename $@).map
-LDLIBS=-lc -lgcc
+TARGET=main
 
-TARGETS=led_blinky hello_world
-ELFS=$(addsuffix .elf, $(TARGETS))
+SRC=$(wildcard *.c)
+ASRC=$(wildcard *.S)
+OBJ=$(patsubst %.c, %.o, $(SRC)) $(patsubst %.S, %.o, $(ASRC))
 
-# Codigo comun a los dos binarios
-COMMON_SRC=startup.c $(wildcard board/*.c drivers/*.c utilities/*.c device/*.c)
-COMMON_OBJ=$(patsubst %.c, %.o, $(COMMON_SRC))
-
-LED_OBJ=$(patsubst %.c, %.o, $(wildcard led_blinky/*.c))
-HELLO_OBJ=$(patsubst %.c, %.o, $(wildcard hello_world/*.c))
-
-.PHONY: all clean flash_led flash_hello debug_led debug_hello
-
-all: $(ELFS)
-
-# Cada ejemplo tiene su propio pin_mux.h
-led_blinky/%.o: CFLAGS += -I./led_blinky
-hello_world/%.o: CFLAGS += -I./hello_world
-
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-led_blinky.elf: $(LED_OBJ) $(COMMON_OBJ)
-hello_world.elf: $(HELLO_OBJ) $(COMMON_OBJ)
-
-$(ELFS):
-	$(LD) $(LDFLAGS) $^ $(LDLIBS) -o $@
-
-flash_led: led_blinky.elf
-	openocd -f openocd.cfg -c "program $< verify reset exit"
-
-flash_hello: hello_world.elf
-	openocd -f openocd.cfg -c "program $< verify reset exit"
-
-# Depuracion: lanza openocd como servidor y conecta GDB
-debug_led: led_blinky.elf
-	$(GDB) $< -ex "target extended-remote | openocd -f openocd.cfg -c 'gdb_port pipe; log_output openocd.log'"
-
-debug_hello: hello_world.elf
-	$(GDB) $< -ex "target extended-remote | openocd -f openocd.cfg -c 'gdb_port pipe; log_output openocd.log'"
+all: elf
+elf: $(TARGET).elf
 
 clean:
-	$(RM) $(ELFS) $(addsuffix .map, $(TARGETS)) $(COMMON_OBJ) $(LED_OBJ) $(HELLO_OBJ) openocd.log
+	$(RM) $(TARGET).srec $(TARGET).elf $(TARGET).bin $(TARGET).map $(OBJ) .optflags
+
+# Guarda el ultimo OPT usado para recompilar todo cuando cambia
+.optflags: FORCE
+	@echo '$(OPT)' | cmp -s - $@ || echo '$(OPT)' > $@
+
+$(OBJ): .optflags
+
+%.o: %.S
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET).elf: $(OBJ)
+	$(LD) $(LDFLAGS) $(OBJ) $(LDLIBS) -o $@
+
+flash: all
+	openocd -f openocd.cfg -c "program $(TARGET).elf verify reset exit"
+
+# Lee los resultados de la placa (despues de make flash)
+results: all
+	NM=$(NM) sh results.sh $(TARGET).elf '$(OPT)'
+
+FORCE:
+
+.PHONY: all elf clean flash results FORCE

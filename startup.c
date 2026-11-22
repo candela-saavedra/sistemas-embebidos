@@ -13,7 +13,7 @@ void WEAK  UsageFaultIntHandler(void);
 void WEAK  SVCIntHandler(void);
 void WEAK  DebugMonIntHandler(void);
 void WEAK  PendSVIntHandler(void);
-void WEAK  SysTick_Handler(void);
+void WEAK  SysTickIntHandler(void);
 void WEAK  DMA0IntHandler(void);
 void WEAK  DMA1IntHandler(void);
 void WEAK  DMA2IntHandler(void);
@@ -73,7 +73,6 @@ extern unsigned long _start_of_stack;
 // Function prototypes
 //*****************************************************************************
 extern int main(void);
-extern void SystemInit(void);
 void ResetHandler(void);
 static void DefaultIntHandler(void);
 
@@ -93,7 +92,7 @@ void (* const g_pfnVectors[])(void) =
     SVCIntHandler,                          // SVCall handler
     0, 0,                                   // Reserved
     PendSVIntHandler,                       // The PendSV handler
-    SysTick_Handler,                      // The SysTick handler
+    SysTickIntHandler,                      // The SysTick handler
 
     DMA0IntHandler,                         // DMA channel 0 transfer complete
                                             // and error handler
@@ -148,9 +147,6 @@ void Default_ResetHandler(void)
 {
   unsigned long *pulSrc, *pulDest;
 
-  /* low level init: disable watchdog (system_MKL46Z4.c) */
-  SystemInit();
-
   /* copy the data segment initializers from flash to SRAM */
   pulSrc = &_sidata;
   for(pulDest = &_sdata; pulDest < &_edata; )
@@ -182,7 +178,7 @@ void Default_ResetHandler(void)
 #pragma weak SVCIntHandler = DefaultIntHandler
 #pragma weak DebugMonIntHandler = DefaultIntHandler
 #pragma weak PendSVIntHandler = DefaultIntHandler
-#pragma weak SysTick_Handler = DefaultIntHandler
+#pragma weak SysTickIntHandler = DefaultIntHandler
 #pragma weak DMA0IntHandler = Default_ResetHandler
 #pragma weak DMA1IntHandler = Default_ResetHandler
 #pragma weak DMA2IntHandler = Default_ResetHandler

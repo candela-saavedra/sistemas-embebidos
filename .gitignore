@@ -30,4 +30,7 @@
 *.hex
 *.bin
 *.srec
+
+# Ultimo nivel de optimizacion usado (ver Makefile)
+.optflags
 openocd.log

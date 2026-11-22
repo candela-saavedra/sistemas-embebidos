@@ -1,26 +1,34 @@
-# Práctica 2 - Sistemas Embebidos (FRDM-KL46Z)
+# Práctica 3 - Sistemas Embebidos (FRDM-KL46Z)
 
-Ejemplos `led_blinky` y `hello_world` de las *demo apps* de la SDK de la
-FRDM-KL46Z, compilados con la toolchain GNU (GCC + OpenOCD + GDB) mediante
-un Makefile propio.
+Benchmarking de implementaciones del checksum Fletcher-16 en el ARM
+Cortex-M0+ de la FRDM-KL46Z, midiendo los ciclos de ejecución con el SysTick
+para arrays de 100 y 1024 bytes, con `-O0` y con `-Ofast`.
+
+La memoria, con las tablas de tiempos, la descripción de las optimizaciones y
+las conclusiones, está en [`practica3.md`](practica3.md).
 
 ## Uso
 
-- `make`: compila los dos binarios (`led_blinky.elf` y `hello_world.elf`).
-- `make flash_led`: compila y graba `led_blinky` en la flash de la placa.
-- `make flash_hello`: compila y graba `hello_world` en la flash de la placa.
-- `make debug_led` / `make debug_hello`: abre una sesión de GDB contra la placa.
+- `make OPT=-O0` / `make OPT=-Ofast`: compila con ese nivel de optimización
+  (por defecto `-O0`). Al cambiar de nivel se recompila todo.
+- `make OPT=... flash`: compila y graba el benchmark en la flash de la placa.
+- `make OPT=... results`: reinicia la placa, espera a que termine el benchmark
+  y muestra la tabla de ciclos leyendo la memoria con OpenOCD.
 - `make clean`: borra los ficheros generados.
 
-`hello_world` escribe por el puerto serie de la OpenSDA a 115200 baudios.
+Al terminar el benchmark se enciende el LED verde si todos los checksums son
+correctos, y el rojo si alguno falla.
 
 ## Estructura
 
-- `led_blinky/`, `hello_world/`: código de cada ejemplo y su `pin_mux`.
-- `board/`, `drivers/`, `utilities/`, `device/`, `CMSIS/`: código de la SDK
-  común a los dos ejemplos.
-- `startup.c`, `link.ld`, `openocd.cfg`: arranque, linker script y
-  configuración de OpenOCD.
+- `fletcher.c`, `fletcher.h`: versiones en C (naive, resta condicional y
+  módulo diferido).
+- `fletcher_asm.S`: módulo diferido en ensamblador, con el bucle desenrollado
+  x8.
+- `main.c`: medición con el SysTick y comprobación de los checksums.
+- `results.sh`: lectura de los resultados desde la placa (`make results`).
+- `startup.c`, `link.ld`, `openocd.cfg`, `includes/`: arranque, linker script,
+  configuración de OpenOCD y cabeceras del MCU.
 
 ## Autores
 
